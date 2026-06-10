@@ -1,10 +1,26 @@
 from datetime import date, time
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from schedules.models import Department, WorkTerm, Student, TimeSlot, Availability, DepartmentRequirement
 
 
 class Command(BaseCommand):
     help = 'Create demo data for the SAINT work schedule MVP.'
+
+    default_student_names = [f'데모학생 {i}' for i in range(1, 11)]
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--student-names',
+            default='',
+            help='Comma-separated student names to use for demo data. Example: "A,B,C"',
+        )
+
+    def _student_names(self, options):
+        raw = (options.get('student_names') or '').strip()
+        if not raw:
+            return self.default_student_names
+        names = [name.strip() for name in raw.split(',') if name.strip()]
+        return names or self.default_student_names
 
     def handle(self, *args, **options):
         dep, _ = Department.objects.get_or_create(
@@ -47,7 +63,9 @@ class Command(BaseCommand):
             )
             slots.append(slot)
 
-        names = ['김현서', '박정빈', '정인혜', '이서영', '강보경', '문소원', '김찬우', '김호준', '박건도', '김다연']
+        names = self._student_names(options)
+        if len(names) != 10:
+            raise CommandError('student names must contain exactly 10 comma-separated names.')
         students = []
         for idx, name in enumerate(names, start=1):
             st, _ = Student.objects.get_or_create(
