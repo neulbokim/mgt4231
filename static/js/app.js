@@ -35,7 +35,8 @@ function renderGroupedPanels(renderRows){
   return `<div class="grouped-tables">${TIME_GROUPS.map(group => {
     const days = groupDays(group.days);
     const slots = groupSlots(group.days);
-    return `<div class="panel"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
+    const groupId = group.days.includes('SAT') ? 'saturday' : 'weekday';
+    return `<div class="panel" data-group="${groupId}"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
   }).join('')}</div>`;
 }
 function syncAvailabilityCell(selectEl){
