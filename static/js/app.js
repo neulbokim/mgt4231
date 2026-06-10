@@ -249,9 +249,12 @@ async function renderRequirements(){
       for(const day of days){
         const current = values[key(day.key, slot.id)] || {requiredCount: 0, preferredCount: 0, maxCount: 0};
         body += `<td><div class="requirement-cell">
-          <label><span class="muted">최소</span><input class="input-mini" type="number" min="0" max="5" value="${current.requiredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="requiredCount"></label>
-          <label><span class="muted">권장</span><input class="input-mini" type="number" min="0" max="5" value="${current.preferredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="preferredCount"></label>
-          <label><span class="muted">최대</span><input class="input-mini" type="number" min="0" max="5" value="${current.maxCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="maxCount"></label>
+          <span class="requirement-label req-min-label">최소</span>
+          <span class="requirement-label req-pref-label">권장</span>
+          <span class="requirement-label req-max-label">최대</span>
+          <input class="input-mini requirement-input req-min-input" type="number" min="0" max="5" value="${current.requiredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="requiredCount">
+          <input class="input-mini requirement-input req-pref-input" type="number" min="0" max="5" value="${current.preferredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="preferredCount">
+          <input class="input-mini requirement-input req-max-input" type="number" min="0" max="5" value="${current.maxCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="maxCount">
         </div></td>`;
       }
       body += `</tr>`;
