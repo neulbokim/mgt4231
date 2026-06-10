@@ -13,6 +13,19 @@ from .serializers import (
     assignment_to_dict, summarize_assignments,
 )
 
+AVAILABLE_STATUSES = {Availability.AVAILABLE, Availability.PREFERRED}
+
+
+def _day_totals_template():
+    return {day['key']: 0.0 for day in DAYS}
+
+
+def _student_totals_template(students):
+    return [
+        {'id': student.id, 'name': student.name, 'dayTotals': _day_totals_template(), 'total': 0.0}
+        for student in students
+    ]
+
 
 @ensure_csrf_cookie
 def index(request):
@@ -48,10 +61,17 @@ def availability_detail(request, student_id, term_id, week_no):
     term = get_object_or_404(WorkTerm, id=term_id)
 
     if request.method == 'GET':
-        rows = Availability.objects.filter(student=student, term=term, week_no=week_no)
+        rows = Availability.objects.filter(student=student, term=term, week_no=week_no).select_related('slot').order_by('day', 'slot__order')
+        day_totals = _day_totals_template()
+        week_total = 0.0
+        for row in rows:
+            if row.status in AVAILABLE_STATUSES:
+                duration = float(row.slot.duration_hours)
+                day_totals[row.day] += duration
+                week_total += duration
         return JsonResponse({'items': [
             {'day': r.day, 'slotId': r.slot_id, 'status': r.status} for r in rows
-        ]})
+        ], 'dayTotals': day_totals, 'weekTotal': week_total})
 
     payload = _body(request)
     items = payload.get('items', [])
@@ -76,24 +96,27 @@ def availability_summary(request, department_id, term_id, week_no):
         student__department=department,
         term=term,
         week_no=week_no,
-        status__in=[Availability.AVAILABLE, Availability.PREFERRED],
-    ).select_related('student', 'slot')
+    ).select_related('student', 'slot').order_by('student__name', 'day', 'slot__order')
 
     summary = defaultdict(list)
-    submitted = set()
-    for r in rows:
-        summary[f'{r.day}:{r.slot_id}'].append({'id': r.student_id, 'name': r.student.name, 'status': r.status})
-        submitted.add(r.student_id)
-
     all_students = list(department.students.filter(is_active=True))
-    submitted_all = set(Availability.objects.filter(
-        student__department=department, term=term, week_no=week_no
-    ).values_list('student_id', flat=True).distinct())
+    student_totals_rows = _student_totals_template(all_students)
+    student_totals = {row['id']: row for row in student_totals_rows}
+    for r in rows:
+        if r.status in AVAILABLE_STATUSES:
+            summary[f'{r.day}:{r.slot_id}'].append({'id': r.student_id, 'name': r.student.name, 'status': r.status})
+            duration = float(r.slot.duration_hours)
+            if r.student_id in student_totals:
+                student_totals[r.student_id]['dayTotals'][r.day] += duration
+                student_totals[r.student_id]['total'] += duration
+
+    submitted_all = set(r.student_id for r in rows)
 
     return JsonResponse({
         'summary': dict(summary),
         'submittedStudentIds': list(submitted_all),
         'notSubmittedStudentIds': [s.id for s in all_students if s.id not in submitted_all],
+        'studentDayTotals': student_totals_rows,
     })
 
 
@@ -158,10 +181,21 @@ def schedule_detail(request, department_id, term_id, week_no):
         department=department, term=term, week_no=week_no
     ).select_related('student', 'slot').order_by('day', 'slot__order', 'id'))
     unfilled = sum(1 for a in assignments if a.status == ScheduleAssignment.UNFILLED)
+    all_students = list(department.students.filter(is_active=True))
+    student_totals_rows = _student_totals_template(all_students)
+    student_totals = {row['id']: row for row in student_totals_rows}
+    for assignment in assignments:
+        if not assignment.student_id or assignment.status == ScheduleAssignment.UNFILLED:
+            continue
+        if assignment.student_id in student_totals:
+            duration = float(assignment.slot.duration_hours)
+            student_totals[assignment.student_id]['dayTotals'][assignment.day] += duration
+            student_totals[assignment.student_id]['total'] += duration
     return JsonResponse({
         'items': [assignment_to_dict(a) for a in assignments],
         'summary': summarize_assignments(assignments),
         'unfilledCount': unfilled,
+        'studentDayTotals': student_totals_rows,
     })
 
 
