@@ -98,10 +98,11 @@ def generate_schedule(department, term, week_no):
                 source=ScheduleAssignment.AUTO,
             ))
 
-    extra_assigned_count = 0
+    preferred_extra_assigned_count = 0
+    max_extra_assigned_count = 0
     for req in requirements:
-        extra_needed = max(0, int(req.preferred_count) - int(req.required_count))
-        for _ in range(extra_needed):
+        preferred_needed = max(0, int(req.preferred_count) - int(req.required_count))
+        for _ in range(preferred_needed):
             student = pick_candidate(req)
             if student is None:
                 break
@@ -120,14 +121,39 @@ def generate_schedule(department, term, week_no):
                 status=ScheduleAssignment.DRAFT,
                 source=ScheduleAssignment.AUTO,
             ))
-            extra_assigned_count += 1
+            preferred_extra_assigned_count += 1
+
+        max_needed = max(0, int(req.max_count) - int(req.preferred_count))
+        for _ in range(max_needed):
+            student = pick_candidate(req)
+            if student is None:
+                break
+
+            dur = _duration(req.slot)
+            total_hours[student.id] += dur
+            day_hours[(student.id, req.day)] += dur
+            assigned_slot_student.add((req.day, req.slot_id, student.id))
+            created.append(ScheduleAssignment.objects.create(
+                department=department,
+                term=term,
+                week_no=week_no,
+                day=req.day,
+                slot=req.slot,
+                student=student,
+                status=ScheduleAssignment.DRAFT,
+                source=ScheduleAssignment.AUTO,
+            ))
+            max_extra_assigned_count += 1
 
     required_total = sum(r.required_count for r in requirements)
     preferred_total = sum(max(r.required_count, r.preferred_count) for r in requirements)
+    max_total = sum(max(r.required_count, r.max_count) for r in requirements)
     filled_total = required_total - unfilled_count
-    preferred_filled_total = filled_total + extra_assigned_count
+    preferred_filled_total = filled_total + preferred_extra_assigned_count
+    max_filled_total = preferred_filled_total + max_extra_assigned_count
     fill_rate = round((filled_total / required_total * 100), 1) if required_total else 0
     preferred_fill_rate = round((preferred_filled_total / preferred_total * 100), 1) if preferred_total else 0
+    max_fill_rate = round((max_filled_total / max_total * 100), 1) if max_total else 0
     return {
         'created_count': len(created),
         'required_total': required_total,
@@ -137,6 +163,11 @@ def generate_schedule(department, term, week_no):
         'preferred_total': preferred_total,
         'preferred_filled_total': preferred_filled_total,
         'preferred_fill_rate': preferred_fill_rate,
-        'extra_assigned_count': extra_assigned_count,
+        'max_total': max_total,
+        'max_filled_total': max_filled_total,
+        'max_fill_rate': max_fill_rate,
+        'extra_assigned_count': preferred_extra_assigned_count + max_extra_assigned_count,
+        'preferred_extra_assigned_count': preferred_extra_assigned_count,
+        'max_extra_assigned_count': max_extra_assigned_count,
         'violation_count': violation_count,
     }

@@ -104,6 +104,7 @@ class Command(BaseCommand):
                     defaults={
                         'required_count': 1,
                         'preferred_count': 2,
+                        'max_count': 2,
                         'priority': DepartmentRequirement.GENERAL,
                     },
                 )

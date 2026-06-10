@@ -96,6 +96,7 @@ class DepartmentRequirement(models.Model):
     slot = models.ForeignKey(TimeSlot, on_delete=models.CASCADE)
     required_count = models.PositiveSmallIntegerField(default=1)
     preferred_count = models.PositiveSmallIntegerField(default=2)
+    max_count = models.PositiveSmallIntegerField(default=2)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default=GENERAL)
 
     class Meta:

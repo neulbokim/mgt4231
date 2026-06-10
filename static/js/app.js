@@ -197,10 +197,11 @@ async function renderRequirements(){
     for(const slot of slots){
       body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
       for(const day of days){
-        const current = values[key(day.key, slot.id)] || {requiredCount: 1, preferredCount: 2};
+        const current = values[key(day.key, slot.id)] || {requiredCount: 0, preferredCount: 0, maxCount: 0};
         body += `<td><div class="requirement-cell">
           <label><span class="muted">최소</span><input class="input-mini" type="number" min="0" max="5" value="${current.requiredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="requiredCount"></label>
           <label><span class="muted">권장</span><input class="input-mini" type="number" min="0" max="5" value="${current.preferredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="preferredCount"></label>
+          <label><span class="muted">최대</span><input class="input-mini" type="number" min="0" max="5" value="${current.maxCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="maxCount"></label>
         </div></td>`;
       }
       body += `</tr>`;
@@ -208,21 +209,27 @@ async function renderRequirements(){
     return tableShell(body);
   });
   view().innerHTML = `<div class="panel"><h2>요일·시간대별 필요 인원</h2><div class="panel-body">
-    <div class="toolbar"><button class="btn" id="fillDefault">기본값 1/2</button><button class="btn primary right" id="saveRequirements">저장</button></div>
+    <div class="toolbar"><button class="btn" id="fillDefault">기본값 0/0/0</button><button class="btn primary right" id="saveRequirements">저장</button></div>
     ${tables}
   </div></div>`;
   $('#fillDefault').addEventListener('click', () => {
-    view().querySelectorAll('input[data-field="requiredCount"]').forEach(inp => inp.value = 1);
-    view().querySelectorAll('input[data-field="preferredCount"]').forEach(inp => inp.value = 2);
+    view().querySelectorAll('input[data-field="requiredCount"]').forEach(inp => inp.value = 0);
+    view().querySelectorAll('input[data-field="preferredCount"]').forEach(inp => inp.value = 0);
+    view().querySelectorAll('input[data-field="maxCount"]').forEach(inp => inp.value = 0);
   });
   $('#saveRequirements').addEventListener('click', async () => {
     const grouped = {};
     [...view().querySelectorAll('input[data-day]')].forEach(inp => {
       const k = key(inp.dataset.day, inp.dataset.slot);
-      if(!grouped[k]) grouped[k] = {day: inp.dataset.day, slotId: Number(inp.dataset.slot), requiredCount: 0, preferredCount: 0, priority:'GENERAL'};
+      if(!grouped[k]) grouped[k] = {day: inp.dataset.day, slotId: Number(inp.dataset.slot), requiredCount: 0, preferredCount: 0, maxCount: 0, priority:'GENERAL'};
       grouped[k][inp.dataset.field] = Number(inp.value || 0);
     });
-    const items = Object.values(grouped).map(item => ({...item, preferredCount: Math.max(item.preferredCount || 0, item.requiredCount || 0)}));
+    const items = Object.values(grouped).map(item => {
+      const requiredCount = Math.max(0, item.requiredCount || 0);
+      const preferredCount = Math.max(requiredCount, item.preferredCount || 0);
+      const maxCount = Math.max(preferredCount, item.maxCount || 0);
+      return {...item, requiredCount, preferredCount, maxCount};
+    });
     await API.saveRequirements(selectedDepartmentId(), selectedTermId(), selectedWeekNo(), items);
     showMessage('부서 필요 인원이 저장되었습니다.');
   });
@@ -235,7 +242,7 @@ async function renderSchedule(generationResult = null){
     <label><input type="checkbox" checked disabled> 하루 8시간 미만</label><br>
     <label><input type="checkbox" checked disabled> 수업/기타 시간 배정 금지</label><br>
     <label><input type="checkbox" checked disabled> 근무 희망 시간 우선 반영</label><br>
-    <label><input type="checkbox" checked disabled> 부서 필요 인원 최소 1명, 권장 2명 반영</label><br>
+    <label><input type="checkbox" checked disabled> 부서 필요 인원 최소/권장/최대 반영</label><br>
     <label><input type="checkbox" checked disabled> 학생별 근무시간 균형 고려</label><br><br>
     <button class="btn primary" id="runGenerate">자동 시간표 생성</button>
   </div></div>`;
@@ -246,7 +253,9 @@ async function renderSchedule(generationResult = null){
       <div class="stat">필수 배정<strong>${generationResult.filled_total}</strong></div>
       <div class="stat">미충원<strong>${generationResult.unfilled_count}</strong></div>
       <div class="stat">권장 충원율<strong>${generationResult.preferred_fill_rate}%</strong></div>
+      <div class="stat">최대 충원율<strong>${generationResult.max_fill_rate}%</strong></div>
       <div class="stat">추가 배정<strong>${generationResult.extra_assigned_count}</strong></div>
+      <div class="stat">최대 슬롯<strong>${generationResult.max_total}</strong></div>
     </div></div>`;
   }
   const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());

@@ -110,6 +110,7 @@ def requirements_detail(request, department_id, term_id, week_no):
                 'slotId': r.slot_id,
                 'requiredCount': r.required_count,
                 'preferredCount': r.preferred_count,
+                'maxCount': r.max_count,
                 'priority': r.priority,
             }
             for r in rows
@@ -128,8 +129,10 @@ def requirements_detail(request, department_id, term_id, week_no):
                 slot=slot,
                 defaults={
                     'required_count': int(item.get('requiredCount', 0)),
-                    'preferred_count': max(
-                        int(item.get('preferredCount', item.get('requiredCount', 0) or 0)),
+                    'preferred_count': max(int(item.get('preferredCount', 0)), int(item.get('requiredCount', 0))),
+                    'max_count': max(
+                        int(item.get('maxCount', item.get('preferredCount', item.get('requiredCount', 0) or 0))),
+                        int(item.get('preferredCount', 0)),
                         int(item.get('requiredCount', 0)),
                     ),
                     'priority': item.get('priority', DepartmentRequirement.GENERAL),
