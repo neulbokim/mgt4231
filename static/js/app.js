@@ -2,6 +2,10 @@ const STATE = {
   route: 'summary',
   departments: [], terms: [], students: [], slots: [], days: [], statuses: [],
 };
+const TIME_GROUPS = [
+  { title: '평일 (8:00-22:00)', days: ['MON', 'TUE', 'WED', 'THU', 'FRI'] },
+  { title: '토요일 (9:00-17:00)', days: ['SAT'] },
+];
 const statusOrder = ['AVAILABLE', 'CLASS', 'MEAL', 'ETC', 'PREFERRED'];
 const statusLabel = {AVAILABLE:'근무 가능', CLASS:'수업', MEAL:'식사', ETC:'기타', PREFERRED:'근무 희망'};
 
@@ -18,6 +22,22 @@ function key(day, slotId){ return `${day}:${slotId}`; }
 function cellKey(day, slotId){ return `${day}-${slotId}`; }
 function escapeHtml(str){ return String(str ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function slotActiveOnDay(slot, dayKey){ return !Array.isArray(slot.activeDays) || slot.activeDays.length === 0 || slot.activeDays.includes(dayKey); }
+function groupDays(dayKeys){
+  const set = new Set(dayKeys);
+  return STATE.days.filter(d => set.has(d.key));
+}
+function groupSlots(dayKeys){
+  const set = new Set(dayKeys);
+  return STATE.slots.filter(slot => Array.isArray(slot.activeDays) && slot.activeDays.some(day => set.has(day))).sort((a, b) => a.order - b.order);
+}
+function renderTableHeader(days){ return `<tr><th class="time">시간대</th>${days.map(d=>`<th>${d.label}</th>`).join('')}</tr>`; }
+function renderGroupedPanels(renderRows){
+  return TIME_GROUPS.map(group => {
+    const days = groupDays(group.days);
+    const slots = groupSlots(group.days);
+    return `<div class="panel"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
+  }).join('');
+}
 function formatSeoulDateLabel(date = new Date()){
   const parts = new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -36,10 +56,6 @@ function refreshUserBar(){
   el.textContent = `${formatSeoulDateLabel()}  ${student?.name || '-'}님 환영합니다.`;
 }
 function slotDisplayLabel(slot){
-  const dayLabel = {MON:'월', TUE:'화', WED:'수', THU:'목', FRI:'금', SAT:'토', SUN:'일'};
-  if(Array.isArray(slot.activeDays) && slot.activeDays.length === 1){
-    return `${slot.label} (${dayLabel[slot.activeDays[0]] || slot.activeDays[0]})`;
-  }
   return slot.label;
 }
 function normalizeRoute(route){
@@ -67,7 +83,6 @@ function renderOverviewPanel(){
 }
 
 function tableShell(inner){ return `<div class="table-wrap"><table class="schedule-table">${inner}</table></div>`; }
-function headerRow(){ return `<tr><th class="time">시간대</th>${STATE.days.map(d=>`<th>${d.label}</th>`).join('')}</tr>`; }
 function statusBadge(s){ return `<span class="badge ${s}">${statusLabel[s] || s}</span>`; }
 function legend(){ return `<div class="legend">${statusOrder.map(s=>statusBadge(s)).join('')} <span class="badge ASSIGNED">배정</span> <span class="badge UNFILLED">#N/A</span></div>`; }
 
@@ -114,22 +129,21 @@ async function renderAvailability(){
   const data = await API.getAvailability(studentId, selectedTermId(), selectedWeekNo());
   const values = {};
   data.items.forEach(i => values[key(i.day, i.slotId)] = i.status);
-  let body = headerRow();
-  for(const slot of STATE.slots){
-    body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        body += `<td class="dim inactive">-</td>`;
-        continue;
+  const tables = renderGroupedPanels((days, slots) => {
+    let body = renderTableHeader(days);
+    for(const slot of slots){
+      body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+      for(const day of days){
+        const current = values[key(day.key, slot.id)] || 'ETC';
+        body += `<td class="${current}"><select data-day="${day.key}" data-slot="${slot.id}">${statusOrder.map(s=>`<option value="${s}" ${s===current?'selected':''}>${statusLabel[s]}</option>`).join('')}</select></td>`;
       }
-      const current = values[key(day.key, slot.id)] || 'ETC';
-      body += `<td class="${current}"><select data-day="${day.key}" data-slot="${slot.id}">${statusOrder.map(s=>`<option value="${s}" ${s===current?'selected':''}>${statusLabel[s]}</option>`).join('')}</select></td>`;
+      body += `</tr>`;
     }
-    body += `</tr>`;
-  }
+    return tableShell(body);
+  });
   view().innerHTML = `<div class="panel"><h2>학생별 근무 희망 시간 입력</h2><div class="panel-body">
     <div class="toolbar">${legend()}<button class="btn primary right" id="saveAvailability">저장</button></div>
-    ${tableShell(body)}
+    ${tables}
   </div></div>`;
   view().querySelectorAll('select[data-day]').forEach(sel => sel.addEventListener('change', e => { e.target.parentElement.className = e.target.value; }));
   $('#saveAvailability').addEventListener('click', async () => {
@@ -145,50 +159,48 @@ async function renderSummary(){
   const students = departmentStudents();
   const submitted = students.filter(s=>data.submittedStudentIds.includes(s.id));
   const notSubmitted = students.filter(s=>data.notSubmittedStudentIds.includes(s.id));
-  let body = headerRow();
-  for(const slot of STATE.slots){
-    body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        body += `<td class="dim inactive">-</td>`;
-        continue;
+  const tables = renderGroupedPanels((days, slots) => {
+    let body = renderTableHeader(days);
+    for(const slot of slots){
+      body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+      for(const day of days){
+        const list = data.summary[key(day.key, slot.id)] || [];
+        body += `<td>${list.map(x=>escapeHtml(x.name)).join('<br>') || '<span class="muted">-</span>'}</td>`;
       }
-      const list = data.summary[key(day.key, slot.id)] || [];
-      body += `<td>${list.map(x=>escapeHtml(x.name)).join('<br>') || '<span class="muted">-</span>'}</td>`;
+      body += `</tr>`;
     }
-    body += `</tr>`;
-  }
+    return tableShell(body);
+  });
   view().innerHTML = `${renderOverviewPanel()}
   <div class="panel"><h2>입력 현황</h2><div class="panel-body two-col">
     <div>제출 완료 <strong>${submitted.length}</strong>명<br><span class="muted">${submitted.map(s=>s.name).join(', ') || '-'}</span></div>
     <div>미제출 <strong>${notSubmitted.length}</strong>명<br><span class="muted">${notSubmitted.map(s=>s.name).join(', ') || '-'}</span></div>
   </div></div>
-  <div class="panel"><h2>시간대별 근무 가능 학생</h2><div class="panel-body">${tableShell(body)}</div></div>`;
+  <div class="panel"><h2>시간대별 근무 가능 학생</h2><div class="panel-body">${tables}</div></div>`;
 }
 
 async function renderRequirements(){
   setTitle('부서별 필요 인원 설정');
   const data = await API.getRequirements(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
   const values = {}; data.items.forEach(i => values[key(i.day, i.slotId)] = i);
-  let body = headerRow();
-  for(const slot of STATE.slots){
-    body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        body += `<td class="dim inactive">-</td>`;
-        continue;
+  const tables = renderGroupedPanels((days, slots) => {
+    let body = renderTableHeader(days);
+    for(const slot of slots){
+      body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+      for(const day of days){
+        const current = values[key(day.key, slot.id)] || {requiredCount: 1, preferredCount: 2};
+        body += `<td><div class="requirement-cell">
+          <label><span class="muted">최소</span><input class="input-mini" type="number" min="0" max="5" value="${current.requiredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="requiredCount"></label>
+          <label><span class="muted">권장</span><input class="input-mini" type="number" min="0" max="5" value="${current.preferredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="preferredCount"></label>
+        </div></td>`;
       }
-      const current = values[key(day.key, slot.id)] || {requiredCount: 1, preferredCount: 2};
-      body += `<td><div class="requirement-cell">
-        <label><span class="muted">최소</span><input class="input-mini" type="number" min="0" max="5" value="${current.requiredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="requiredCount"></label>
-        <label><span class="muted">권장</span><input class="input-mini" type="number" min="0" max="5" value="${current.preferredCount ?? 0}" data-day="${day.key}" data-slot="${slot.id}" data-field="preferredCount"></label>
-      </div></td>`;
+      body += `</tr>`;
     }
-    body += `</tr>`;
-  }
+    return tableShell(body);
+  });
   view().innerHTML = `<div class="panel"><h2>요일·시간대별 필요 인원</h2><div class="panel-body">
     <div class="toolbar"><button class="btn" id="fillDefault">기본값 1/2</button><button class="btn primary right" id="saveRequirements">저장</button></div>
-    ${tableShell(body)}
+    ${tables}
   </div></div>`;
   $('#fillDefault').addEventListener('click', () => {
     view().querySelectorAll('input[data-field="requiredCount"]').forEach(inp => inp.value = 1);
@@ -231,26 +243,25 @@ async function renderSchedule(generationResult = null){
   const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
   const grouped = {};
   data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
-  let body = headerRow();
-  for(const slot of STATE.slots){
-    body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        body += `<td class="dim inactive">-</td>`;
-        continue;
+  const tables = renderGroupedPanels((days, slots) => {
+    let body = renderTableHeader(days);
+    for(const slot of slots){
+      body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+      for(const day of days){
+        const items = grouped[key(day.key, slot.id)] || [];
+        const html = items.length ? items.map(a=>`<div class="${a.status==='UNFILLED'?'UNFILLED':''}" data-assignment="${a.id}">${escapeHtml(a.studentName)}</div>`).join('') : '<span class="muted">-</span>';
+        body += `<td>${html}</td>`;
       }
-      const items = grouped[key(day.key, slot.id)] || [];
-      const html = items.length ? items.map(a=>`<div class="${a.status==='UNFILLED'?'UNFILLED':''}" data-assignment="${a.id}">${escapeHtml(a.studentName)}</div>`).join('') : '<span class="muted">-</span>';
-      body += `<td>${html}</td>`;
+      body += `</tr>`;
     }
-    body += `</tr>`;
-  }
+    return tableShell(body);
+  });
   const hours = data.summary.studentHours || {};
   const hoursHtml = Object.entries(hours).map(([name,h])=>`${escapeHtml(name)} ${h}h`).join(' / ') || '-';
   view().innerHTML = `${generatePanel}
   <div class="panel"><h2>전체 근무시간표</h2><div class="panel-body">
     <div class="toolbar"><button class="btn" id="downloadCsv">CSV 다운로드</button><button class="btn primary" id="confirmSchedule">시간표 확정</button></div>
-    ${tableShell(body)}
+    ${tables}
     <p><strong>학생별 근무시간 합계</strong><br>${hoursHtml}</p>
   </div></div>`;
   $('#runGenerate').addEventListener('click', async () => {
@@ -270,26 +281,25 @@ async function renderMySchedule(){
   const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
   const grouped = {}; data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
   const mine = data.items.filter(a=>a.studentId===studentId);
-  let gridBody = headerRow();
-  for(const slot of STATE.slots){
-    gridBody += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        gridBody += `<td class="dim inactive">-</td>`;
-        continue;
+  const grids = renderGroupedPanels((days, slots) => {
+    let gridBody = renderTableHeader(days);
+    for(const slot of slots){
+      gridBody += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+      for(const day of days){
+        const items = grouped[key(day.key, slot.id)] || [];
+        const hit = items.some(a=>a.studentId===studentId);
+        gridBody += `<td class="${hit?'highlight':'dim'}">${hit ? '근무' : ''}</td>`;
       }
-      const items = grouped[key(day.key, slot.id)] || [];
-      const hit = items.some(a=>a.studentId===studentId);
-      gridBody += `<td class="${hit?'highlight':'dim'}">${hit ? '근무' : ''}</td>`;
+      gridBody += `</tr>`;
     }
-    gridBody += `</tr>`;
-  }
+    return tableShell(gridBody);
+  });
   const total = mine.reduce((sum,a)=>sum + (STATE.slots.find(s=>s.id===a.slotId)?.durationHours || 0), 0);
   const rows = mine.map(a=>`<tr><td>${a.day}</td><td>${a.slotLabel}</td><td>${escapeHtml(dep?.location || '-')}</td><td>${a.status}</td></tr>`).join('');
   view().innerHTML = `<div class="panel"><h2>${escapeHtml(student?.name)} 학생 근무 개요</h2><div class="panel-body">
     <p><strong>이름:</strong> ${escapeHtml(student?.name)} &nbsp; <strong>부서:</strong> ${escapeHtml(dep?.name)} &nbsp; <strong>이번 주 근무시간:</strong> ${total}h</p>
     <div class="toolbar"><span class="badge ASSIGNED">배정 슬롯</span><button class="btn right" id="downloadMine">개인 CSV 다운로드</button></div>
-    ${tableShell(gridBody)}
+    ${grids}
   </div></div>
   <div class="panel"><h2>근무 내역</h2><div class="panel-body">
     <div class="table-wrap"><table class="schedule-table"><tr><th>요일</th><th>시간</th><th>근무 장소</th><th>상태</th></tr>${rows || '<tr><td colspan="4" class="empty">배정된 근무가 없습니다.</td></tr>'}</table></div>
