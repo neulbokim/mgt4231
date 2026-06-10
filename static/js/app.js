@@ -32,11 +32,11 @@ function groupSlots(dayKeys){
 }
 function renderTableHeader(days){ return `<tr><th class="time">시간대</th>${days.map(d=>`<th>${d.label}</th>`).join('')}</tr>`; }
 function renderGroupedPanels(renderRows){
-  return TIME_GROUPS.map(group => {
+  return `<div class="grouped-tables">${TIME_GROUPS.map(group => {
     const days = groupDays(group.days);
     const slots = groupSlots(group.days);
     return `<div class="panel"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
-  }).join('');
+  }).join('')}</div>`;
 }
 function formatSeoulDateLabel(date = new Date()){
   const parts = new Intl.DateTimeFormat('ko-KR', {
