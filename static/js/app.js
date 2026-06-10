@@ -184,12 +184,12 @@ async function renderSummary(){
     }
     return tableShell(body);
   });
-  view().innerHTML = `${renderOverviewPanel()}
-  <div class="panel"><h2>입력 현황</h2><div class="panel-body two-col">
+  view().innerHTML = `<div class="panel"><h2>입력 현황</h2><div class="panel-body two-col">
     <div>제출 완료 <strong>${submitted.length}</strong>명<br><span class="muted">${submitted.map(s=>s.name).join(', ') || '-'}</span></div>
     <div>미제출 <strong>${notSubmitted.length}</strong>명<br><span class="muted">${notSubmitted.map(s=>s.name).join(', ') || '-'}</span></div>
   </div></div>
   <div class="panel"><h2>시간대별 근무 가능 학생</h2><div class="panel-body">${tables}</div></div>`;
+  view().innerHTML += renderOverviewPanel();
 }
 
 async function renderRequirements(){
