@@ -316,7 +316,7 @@ async function renderMySchedule(){
         const items = grouped[key(day.key, slot.id)] || [];
         const hit = items.some(a=>a.studentId===studentId);
         const status = availabilityValues[key(day.key, slot.id)] || 'NA';
-        gridBody += `<td class="${hit ? 'highlight' : ''}">${renderStatusChip(status, true)}</td>`;
+        gridBody += `<td class="${hit ? 'highlight' : ''}">${hit ? '' : renderStatusChip(status, true)}</td>`;
       }
       gridBody += `</tr>`;
     }
