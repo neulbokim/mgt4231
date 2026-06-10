@@ -196,7 +196,8 @@ async function renderAvailability(){
     return tableShell(body + renderTotalsFooter(days, totals));
   });
   view().innerHTML = `<div class="panel"><h2>학생별 근무 희망 시간 입력</h2><div class="panel-body">
-    <div class="toolbar">${legend()}<span class="badge ASSIGNED">주차 합계 ${formatHours(availabilityTotals.weekTotal)}</span><button class="btn primary right" id="saveAvailability">저장</button></div>
+    <div class="toolbar">${legend()}<button class="btn primary right" id="saveAvailability">저장</button></div>
+    <p class="muted">주차 근무 가능 시간 합계: ${formatHours(availabilityTotals.weekTotal)}</p>
     ${tables}
   </div></div>`;
   view().querySelectorAll('select[data-day]').forEach(sel => {
@@ -369,7 +370,14 @@ async function renderMySchedule(){
       }
       gridBody += `</tr>`;
     }
-    return tableShell(gridBody);
+    const totals = {};
+    for(const day of days) totals[day.key] = 0;
+    for(const item of mine){
+      if(!totals.hasOwnProperty(item.day)) continue;
+      const slot = STATE.slots.find(s => s.id === item.slotId);
+      if(slot) totals[item.day] += Number(slot.durationHours || 0);
+    }
+    return tableShell(gridBody + renderTotalsFooter(days, totals));
   });
   const total = mine.reduce((sum,a)=>sum + (STATE.slots.find(s=>s.id===a.slotId)?.durationHours || 0), 0);
   const rows = mine.map(a => {
