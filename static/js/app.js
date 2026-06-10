@@ -38,6 +38,11 @@ function renderGroupedPanels(renderRows){
     return `<div class="panel"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
   }).join('')}</div>`;
 }
+function syncAvailabilityCell(selectEl){
+  const cell = selectEl.closest('td');
+  if(!cell) return;
+  cell.className = selectEl.value;
+}
 function formatSeoulDateLabel(date = new Date()){
   const parts = new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -145,7 +150,10 @@ async function renderAvailability(){
     <div class="toolbar">${legend()}<button class="btn primary right" id="saveAvailability">저장</button></div>
     ${tables}
   </div></div>`;
-  view().querySelectorAll('select[data-day]').forEach(sel => sel.addEventListener('change', e => { e.target.parentElement.className = e.target.value; }));
+  view().querySelectorAll('select[data-day]').forEach(sel => {
+    syncAvailabilityCell(sel);
+    sel.addEventListener('change', e => syncAvailabilityCell(e.target));
+  });
   $('#saveAvailability').addEventListener('click', async () => {
     const items = [...view().querySelectorAll('select[data-day]')].map(sel => ({day: sel.dataset.day, slotId: Number(sel.dataset.slot), status: sel.value}));
     await API.saveAvailability(studentId, selectedTermId(), selectedWeekNo(), items);
