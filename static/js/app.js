@@ -18,6 +18,23 @@ function key(day, slotId){ return `${day}:${slotId}`; }
 function cellKey(day, slotId){ return `${day}-${slotId}`; }
 function escapeHtml(str){ return String(str ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function slotActiveOnDay(slot, dayKey){ return !Array.isArray(slot.activeDays) || slot.activeDays.length === 0 || slot.activeDays.includes(dayKey); }
+function formatSeoulDateLabel(date = new Date()){
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  }).formatToParts(date);
+  const get = (type) => parts.find(p => p.type === type)?.value;
+  return `${get('year')}.${get('month')}.${get('day')}(${get('weekday')})`;
+}
+function refreshUserBar(){
+  const el = $('#userbar');
+  if(!el) return;
+  const student = STATE.students.find(s => s.id === selectedStudentId());
+  el.textContent = `${formatSeoulDateLabel()}  ${student?.name || '-'}님 환영합니다.`;
+}
 function slotDisplayLabel(slot){
   const dayLabel = {MON:'월', TUE:'화', WED:'수', THU:'목', FRI:'금', SAT:'토', SUN:'일'};
   if(Array.isArray(slot.activeDays) && slot.activeDays.length === 1){
@@ -36,6 +53,7 @@ async function init(){
   Object.assign(STATE, data);
   fillSelects();
   bindNavigation();
+  refreshUserBar();
   window.addEventListener('hashchange', () => navigate(location.hash.replace('#','') || 'status'));
   navigate(location.hash.replace('#','') || 'status');
 }
@@ -45,8 +63,13 @@ function fillSelects(){
   $('#termSelect').innerHTML = STATE.terms.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
   $('#weekSelect').innerHTML = Array.from({length:16}, (_,i)=>`<option value="${i+1}">${i+1}주차</option>`).join('');
   $('#studentSelect').innerHTML = departmentStudents().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-  $('#departmentSelect').addEventListener('change', () => { $('#studentSelect').innerHTML = departmentStudents().map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); render(); });
-  ['termSelect','weekSelect','studentSelect'].forEach(id => $(`#${id}`).addEventListener('change', render));
+  $('#departmentSelect').addEventListener('change', () => {
+    $('#studentSelect').innerHTML = departmentStudents().map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    refreshUserBar();
+    render();
+  });
+  ['termSelect','weekSelect'].forEach(id => $(`#${id}`).addEventListener('change', render));
+  $('#studentSelect').addEventListener('change', () => { refreshUserBar(); render(); });
 }
 
 function bindNavigation(){
