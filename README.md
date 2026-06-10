@@ -47,6 +47,8 @@ saint-work-schedule-system/
 
 ## 3. 실행 방법
 
+로컬 개발 환경 기준입니다. `seed_demo`는 데모 데이터(부서, 학기, 학생, 시간대, 필요 인원)를 넣고, `reset_demo_students`는 학생 이름과 가능 시간, 배정 데이터를 다시 초기화합니다.
+
 ```bash
 cd saint-work-schedule-system
 python -m venv .venv
@@ -101,7 +103,17 @@ python manage.py runserver
 
 초기화가 필요하면 위의 `reset_demo_students` 명령을 먼저 실행한 뒤 다시 `seed_demo`를 실행하면 됩니다.
 
-## 5. 주요 화면
+## 5. Render 배포
+
+Render에 올릴 때는 이 저장소의 `build.sh`를 그대로 쓰면 됩니다.
+
+- Build Command: `./build.sh`
+- Start Command: `gunicorn config.wsgi:application`
+- Environment Variables: `SECRET_KEY`, `DEBUG=False`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`
+
+Render에서 PostgreSQL을 붙인 경우 `DATABASE_URL`만 맞게 넣어주면 됩니다. 정적 파일은 `collectstatic`으로 자동 처리됩니다.
+
+## 6. 주요 화면
 
 ### 학생
 
@@ -114,7 +126,7 @@ python manage.py runserver
 2. 부서별 필요 인원 설정
 3. 전체 근무시간표
 
-## 6. 주요 API
+## 7. 주요 API
 
 | Method | URL | 설명 |
 |---|---|---|
@@ -127,7 +139,7 @@ python manage.py runserver
 | PATCH | `/api/assignments/{assignment_id}/` | 배정 학생 수동 변경 |
 | POST | `/api/confirm/{department_id}/{term_id}/{week_no}/` | 시간표 확정 |
 
-## 7. DB 설계 요약
+## 8. DB 설계 요약
 
 ### Department
 근로 부서 정보입니다. 부서명, 위치, 담당자 정보를 저장합니다.
@@ -150,7 +162,7 @@ python manage.py runserver
 ### ScheduleAssignment
 자동 생성 또는 수동 수정으로 만들어진 최종 근무 배정 결과입니다.
 
-## 8. 알고리즘 MVP 기준
+## 9. 알고리즘 MVP 기준
 
 자동 생성 시 다음 조건을 반영합니다.
 
@@ -163,7 +175,7 @@ python manage.py runserver
 - 학생별 누적 배정 시간이 적은 학생을 우선 배정
 - 후보자가 없으면 `#N/A` 미충원으로 표시
 
-## 9. 다음 개발 단계
+## 10. 다음 개발 단계
 
 - 로그인/권한 분리: 학생, 직원, 관리자
 - SAINT 학사 DB 연동: 학생정보, 수업시간표 자동 반영
