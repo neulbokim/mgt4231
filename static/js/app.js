@@ -39,8 +39,9 @@ function renderGroupedPanels(renderRows){
     return `<div class="panel" data-group="${groupId}"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
   }).join('')}</div>`;
 }
-function renderStatusChip(status, readonly = false){
-  return `<div class="status-pill${readonly ? ' static' : ''}" data-status="${status}">${escapeHtml(statusLabel[status] || status)}</div>`;
+function renderStatusChip(status, readonly = false, swatchOnly = false){
+  const label = escapeHtml(statusLabel[status] || status);
+  return `<div class="status-pill${readonly ? ' static' : ''}${swatchOnly ? ' swatch-only' : ''}" data-status="${status}" title="${label}" aria-label="${label}">${swatchOnly ? '' : label}</div>`;
 }
 function syncAvailabilityCell(selectEl){
   const pill = selectEl.closest('.status-pill');
@@ -316,7 +317,7 @@ async function renderMySchedule(){
         const items = grouped[key(day.key, slot.id)] || [];
         const hit = items.some(a=>a.studentId===studentId);
         const status = availabilityValues[key(day.key, slot.id)] || 'NA';
-        gridBody += `<td class="${hit ? 'highlight' : ''}">${hit ? '' : renderStatusChip(status, true)}</td>`;
+        gridBody += `<td class="${hit ? 'highlight' : ''}">${renderStatusChip(status, true, hit)}</td>`;
       }
       gridBody += `</tr>`;
     }
