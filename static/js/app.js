@@ -39,9 +39,9 @@ function renderGroupedPanels(renderRows){
   }).join('')}</div>`;
 }
 function syncAvailabilityCell(selectEl){
-  const cell = selectEl.closest('td');
-  if(!cell) return;
-  cell.className = selectEl.value;
+  const pill = selectEl.closest('.status-pill');
+  if(!pill) return;
+  pill.dataset.status = selectEl.value;
 }
 function formatSeoulDateLabel(date = new Date()){
   const parts = new Intl.DateTimeFormat('ko-KR', {
@@ -140,7 +140,7 @@ async function renderAvailability(){
       body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
       for(const day of days){
         const current = values[key(day.key, slot.id)] || 'NA';
-        body += `<td class="${current}"><select data-day="${day.key}" data-slot="${slot.id}">${statusOrder.map(s=>`<option value="${s}" ${s===current?'selected':''}>${statusLabel[s]}</option>`).join('')}</select></td>`;
+        body += `<td><div class="status-pill" data-status="${current}"><select data-day="${day.key}" data-slot="${slot.id}">${statusOrder.map(s=>`<option value="${s}" ${s===current?'selected':''}>${statusLabel[s]}</option>`).join('')}</select></div></td>`;
       }
       body += `</tr>`;
     }
