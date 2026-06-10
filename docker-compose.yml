@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: saint-schedule-db
+    environment:
+      POSTGRES_DB: saint_schedule
+      POSTGRES_USER: saint
+      POSTGRES_PASSWORD: saintpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - saint_schedule_pgdata:/var/lib/postgresql/data
+
+volumes:
+  saint_schedule_pgdata:
