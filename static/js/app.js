@@ -39,6 +39,9 @@ function renderGroupedPanels(renderRows){
     return `<div class="panel" data-group="${groupId}"><h2>${escapeHtml(group.title)}</h2><div class="panel-body">${renderRows(days, slots, group)}</div></div>`;
   }).join('')}</div>`;
 }
+function renderStatusChip(status, readonly = false){
+  return `<div class="status-pill${readonly ? ' static' : ''}" data-status="${status}">${escapeHtml(statusLabel[status] || status)}</div>`;
+}
 function syncAvailabilityCell(selectEl){
   const pill = selectEl.closest('.status-pill');
   if(!pill) return;
@@ -296,9 +299,15 @@ async function renderMySchedule(){
   const studentId = selectedStudentId();
   const student = STATE.students.find(s=>s.id===studentId);
   const dep = STATE.departments.find(d=>d.id===selectedDepartmentId());
-  const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
-  const grouped = {}; data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
-  const mine = data.items.filter(a=>a.studentId===studentId);
+  const [availabilityData, scheduleData] = await Promise.all([
+    API.getAvailability(studentId, selectedTermId(), selectedWeekNo()),
+    API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo()),
+  ]);
+  const availabilityValues = {};
+  availabilityData.items.forEach(i => availabilityValues[key(i.day, i.slotId)] = i.status);
+  const grouped = {};
+  scheduleData.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
+  const mine = scheduleData.items.filter(a=>a.studentId===studentId);
   const grids = renderGroupedPanels((days, slots) => {
     let gridBody = renderTableHeader(days);
     for(const slot of slots){
@@ -306,14 +315,18 @@ async function renderMySchedule(){
       for(const day of days){
         const items = grouped[key(day.key, slot.id)] || [];
         const hit = items.some(a=>a.studentId===studentId);
-        gridBody += `<td class="${hit?'highlight':'dim'}">${hit ? '근무' : ''}</td>`;
+        const status = availabilityValues[key(day.key, slot.id)] || 'NA';
+        gridBody += `<td class="${hit ? 'highlight' : ''}">${renderStatusChip(status, true)}</td>`;
       }
       gridBody += `</tr>`;
     }
     return tableShell(gridBody);
   });
   const total = mine.reduce((sum,a)=>sum + (STATE.slots.find(s=>s.id===a.slotId)?.durationHours || 0), 0);
-  const rows = mine.map(a=>`<tr><td>${a.day}</td><td>${a.slotLabel}</td><td>${escapeHtml(dep?.location || '-')}</td><td>${a.status}</td></tr>`).join('');
+  const rows = mine.map(a => {
+    const dayLabel = STATE.days.find(d => d.key === a.day)?.label || a.day;
+    return `<tr><td>${dayLabel}</td><td>${a.slotLabel}</td><td>${escapeHtml(dep?.location || '-')}</td><td>${escapeHtml(statusLabel[a.status] || a.status)}</td></tr>`;
+  }).join('');
   view().innerHTML = `<div class="panel"><h2>${escapeHtml(student?.name)} 학생 근무 개요</h2><div class="panel-body">
     <p><strong>이름:</strong> ${escapeHtml(student?.name)} &nbsp; <strong>부서:</strong> ${escapeHtml(dep?.name)} &nbsp; <strong>이번 주 근무시간:</strong> ${total}h</p>
     <div class="toolbar"><span class="badge ASSIGNED">배정 슬롯</span><button class="btn right" id="downloadMine">개인 CSV 다운로드</button></div>
