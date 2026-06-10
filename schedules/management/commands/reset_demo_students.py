@@ -7,7 +7,10 @@ from schedules.models import Availability, ScheduleAssignment, Student
 class Command(BaseCommand):
     help = 'Reset demo student names and clear availability/assignment data.'
 
-    default_student_names = [f'데모학생 {i}' for i in range(1, 11)]
+    default_student_names = [
+        '박은빈', '남지현', '박찬욱', '심종혁', '김현서',
+        '송형준', '이한나', '이혜주', '남민석', '신우현',
+    ]
 
     def add_arguments(self, parser):
         parser.add_argument(
