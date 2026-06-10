@@ -1,5 +1,5 @@
 const STATE = {
-  route: 'status',
+  route: 'summary',
   departments: [], terms: [], students: [], slots: [], days: [], statuses: [],
 };
 const statusOrder = ['AVAILABLE', 'CLASS', 'MEAL', 'ETC', 'PREFERRED'];
@@ -42,6 +42,29 @@ function slotDisplayLabel(slot){
   }
   return slot.label;
 }
+function normalizeRoute(route){
+  const aliases = {status:'summary', generate:'schedule', 'student-slots':'my-schedule'};
+  return aliases[route] || route;
+}
+function renderOverviewPanel(){
+  const students = departmentStudents();
+  return `<div class="panel"><h2>근무시간표 조율 현황</h2><div class="panel-body">
+    <div class="stats">
+      <div class="stat">선발 학생 수<strong>${students.length}</strong></div>
+      <div class="stat">입력 대상 주차<strong>${selectedWeekNo()}주차</strong></div>
+      <div class="stat">현재 단계<strong>작성 중</strong></div>
+      <div class="stat">부서<strong>${escapeHtml(STATE.departments.find(d=>d.id===selectedDepartmentId())?.name)}</strong></div>
+    </div>
+    <p class="muted">학생은 근무 희망 시간을 입력하고, 관리자는 가능 시간 수합 → 필요 인원 설정 → 자동 시간표 생성 → 확정 순서로 진행합니다.</p>
+  </div></div>
+  <div class="panel"><h2>업무 흐름</h2><div class="panel-body list">
+    1. 학생별 근무 가능/수업/식사/기타 시간 입력<br>
+    2. 관리자가 학생별 가능 시간 자동 수합 확인<br>
+    3. 부서별 요일·시간대 필요 인원 설정<br>
+    4. 제약조건 기반 자동 시간표 생성<br>
+    5. 전체 근무시간표 확인 및 확정
+  </div></div>`;
+}
 
 function tableShell(inner){ return `<div class="table-wrap"><table class="schedule-table">${inner}</table></div>`; }
 function headerRow(){ return `<tr><th class="time">시간대</th>${STATE.days.map(d=>`<th>${d.label}</th>`).join('')}</tr>`; }
@@ -54,8 +77,8 @@ async function init(){
   fillSelects();
   bindNavigation();
   refreshUserBar();
-  window.addEventListener('hashchange', () => navigate(location.hash.replace('#','') || 'status'));
-  navigate(location.hash.replace('#','') || 'status');
+  window.addEventListener('hashchange', () => navigate(location.hash.replace('#','') || 'summary'));
+  navigate(location.hash.replace('#','') || 'summary');
 }
 
 function fillSelects(){
@@ -75,31 +98,14 @@ function fillSelects(){
 function bindNavigation(){
   document.querySelectorAll('.sidebar button').forEach(btn => btn.addEventListener('click', () => { location.hash = btn.dataset.route; }));
 }
-function navigate(route){ STATE.route = route; document.querySelectorAll('.sidebar button').forEach(b=>b.classList.toggle('active', b.dataset.route===route)); render(); }
-function render(){
-  const map = {status:renderStatus, availability:renderAvailability, summary:renderSummary, requirements:renderRequirements, generate:renderGenerate, schedule:renderSchedule, 'student-slots':renderStudentSlots, 'my-schedule':renderMySchedule};
-  (map[STATE.route] || renderStatus)();
+function navigate(route){
+  STATE.route = normalizeRoute(route);
+  document.querySelectorAll('.sidebar button').forEach(b=>b.classList.toggle('active', b.dataset.route===STATE.route));
+  render();
 }
-
-function renderStatus(){
-  setTitle('신청 현황');
-  const students = departmentStudents();
-  view().innerHTML = `<div class="panel"><h2>근무시간표 조율 현황</h2><div class="panel-body">
-    <div class="stats">
-      <div class="stat">선발 학생 수<strong>${students.length}</strong></div>
-      <div class="stat">입력 대상 주차<strong>${selectedWeekNo()}주차</strong></div>
-      <div class="stat">현재 단계<strong>작성 중</strong></div>
-      <div class="stat">부서<strong>${escapeHtml(STATE.departments.find(d=>d.id===selectedDepartmentId())?.name)}</strong></div>
-    </div>
-    <p class="muted">학생은 근무 희망 시간을 입력하고, 직원은 가능 시간 수합 → 필요 인원 설정 → 자동 시간표 생성 → 확정 순서로 진행합니다.</p>
-  </div></div>
-  <div class="panel"><h2>업무 흐름</h2><div class="panel-body list">
-    1. 학생별 근무 가능/수업/식사/기타 시간 입력<br>
-    2. 직원이 학생별 가능 시간 자동 수합 확인<br>
-    3. 부서별 요일·시간대 필요 인원 설정<br>
-    4. 제약조건 기반 자동 시간표 생성<br>
-    5. 학생별 배정 슬롯 하이라이트 확인 및 시간표 확정
-  </div></div>`;
+function render(){
+  const map = {availability:renderAvailability, summary:renderSummary, requirements:renderRequirements, schedule:renderSchedule, 'my-schedule':renderMySchedule};
+  (map[STATE.route] || renderSummary)();
 }
 
 async function renderAvailability(){
@@ -152,7 +158,8 @@ async function renderSummary(){
     }
     body += `</tr>`;
   }
-  view().innerHTML = `<div class="panel"><h2>입력 현황</h2><div class="panel-body two-col">
+  view().innerHTML = `${renderOverviewPanel()}
+  <div class="panel"><h2>입력 현황</h2><div class="panel-body two-col">
     <div>제출 완료 <strong>${submitted.length}</strong>명<br><span class="muted">${submitted.map(s=>s.name).join(', ') || '-'}</span></div>
     <div>미제출 <strong>${notSubmitted.length}</strong>명<br><span class="muted">${notSubmitted.map(s=>s.name).join(', ') || '-'}</span></div>
   </div></div>
@@ -160,7 +167,7 @@ async function renderSummary(){
 }
 
 async function renderRequirements(){
-  setTitle('부서 필요 인원 설정');
+  setTitle('부서별 필요 인원 설정');
   const data = await API.getRequirements(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
   const values = {}; data.items.forEach(i => values[key(i.day, i.slotId)] = i);
   let body = headerRow();
@@ -200,9 +207,9 @@ async function renderRequirements(){
   });
 }
 
-function renderGenerate(){
-  setTitle('근무시간표 자동 생성');
-  view().innerHTML = `<div class="panel"><h2>자동 생성 조건</h2><div class="panel-body list">
+async function renderSchedule(generationResult = null){
+  setTitle('전체 근무시간표');
+  let generatePanel = `<div class="panel"><h2>자동 시간표 생성</h2><div class="panel-body list">
     <label><input type="checkbox" checked disabled> 주당 최대 14시간 이하</label><br>
     <label><input type="checkbox" checked disabled> 하루 8시간 미만</label><br>
     <label><input type="checkbox" checked disabled> 수업/기타 시간 배정 금지</label><br>
@@ -210,24 +217,17 @@ function renderGenerate(){
     <label><input type="checkbox" checked disabled> 부서 필요 인원 최소 1명, 권장 2명 반영</label><br>
     <label><input type="checkbox" checked disabled> 학생별 근무시간 균형 고려</label><br><br>
     <button class="btn primary" id="runGenerate">자동 시간표 생성</button>
-  </div></div><div id="generateResult"></div>`;
-  $('#runGenerate').addEventListener('click', async () => {
-    const res = await API.generateSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
-    const r = res.result;
-    $('#generateResult').innerHTML = `<div class="panel"><h2>생성 결과</h2><div class="panel-body stats">
-      <div class="stat">필수 충원율<strong>${r.fill_rate}%</strong></div>
-      <div class="stat">필수 슬롯<strong>${r.required_total}</strong></div>
-      <div class="stat">필수 배정<strong>${r.filled_total}</strong></div>
-      <div class="stat">미충원<strong>${r.unfilled_count}</strong></div>
-      <div class="stat">권장 충원율<strong>${r.preferred_fill_rate}%</strong></div>
-      <div class="stat">추가 배정<strong>${r.extra_assigned_count}</strong></div>
+  </div></div>`;
+  if(generationResult){
+    generatePanel += `<div class="panel"><h2>생성 결과</h2><div class="panel-body stats">
+      <div class="stat">필수 충원율<strong>${generationResult.fill_rate}%</strong></div>
+      <div class="stat">필수 슬롯<strong>${generationResult.required_total}</strong></div>
+      <div class="stat">필수 배정<strong>${generationResult.filled_total}</strong></div>
+      <div class="stat">미충원<strong>${generationResult.unfilled_count}</strong></div>
+      <div class="stat">권장 충원율<strong>${generationResult.preferred_fill_rate}%</strong></div>
+      <div class="stat">추가 배정<strong>${generationResult.extra_assigned_count}</strong></div>
     </div></div>`;
-    showMessage('근무시간표가 자동 생성되었습니다.');
-  });
-}
-
-async function renderSchedule(){
-  setTitle('전체 근무시간표');
+  }
   const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
   const grouped = {};
   data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
@@ -247,42 +247,19 @@ async function renderSchedule(){
   }
   const hours = data.summary.studentHours || {};
   const hoursHtml = Object.entries(hours).map(([name,h])=>`${escapeHtml(name)} ${h}h`).join(' / ') || '-';
-  view().innerHTML = `<div class="panel"><h2>전체 근무시간표</h2><div class="panel-body">
+  view().innerHTML = `${generatePanel}
+  <div class="panel"><h2>전체 근무시간표</h2><div class="panel-body">
     <div class="toolbar"><button class="btn" id="downloadCsv">CSV 다운로드</button><button class="btn primary" id="confirmSchedule">시간표 확정</button></div>
     ${tableShell(body)}
     <p><strong>학생별 근무시간 합계</strong><br>${hoursHtml}</p>
   </div></div>`;
+  $('#runGenerate').addEventListener('click', async () => {
+    const res = await API.generateSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
+    showMessage('근무시간표가 자동 생성되었습니다.');
+    renderSchedule(res.result);
+  });
   $('#confirmSchedule').addEventListener('click', async () => { await API.confirmSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo()); showMessage('시간표가 확정되었습니다.'); renderSchedule(); });
   $('#downloadCsv').addEventListener('click', () => downloadCsv('schedule.csv', data.items.map(a=>({day:a.day, slot:a.slotLabel, student:a.studentName, status:a.status}))));
-}
-
-async function renderStudentSlots(){
-  setTitle('학생별 근무 슬롯 확인');
-  const studentId = selectedStudentId();
-  const student = STATE.students.find(s=>s.id===studentId);
-  const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
-  const grouped = {}; data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
-  const mine = data.items.filter(a=>a.studentId===studentId);
-  let body = headerRow();
-  for(const slot of STATE.slots){
-    body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
-    for(const day of STATE.days){
-      if(!slotActiveOnDay(slot, day.key)){
-        body += `<td class="dim inactive">-</td>`;
-        continue;
-      }
-      const items = grouped[key(day.key, slot.id)] || [];
-      const hit = items.some(a=>a.studentId===studentId);
-      body += `<td class="${hit?'highlight':'dim'}">${hit ? '근무' : ''}</td>`;
-    }
-    body += `</tr>`;
-  }
-  const total = mine.reduce((sum,a)=>sum + (STATE.slots.find(s=>s.id===a.slotId)?.durationHours || 0), 0);
-  view().innerHTML = `<div class="panel"><h2>${escapeHtml(student?.name)} 학생 배정 슬롯</h2><div class="panel-body">
-    <div class="toolbar"><span class="badge ASSIGNED">배정 슬롯</span><strong>주간 총 근무시간: ${total}h</strong><button class="btn right" id="downloadMine">개인 CSV 다운로드</button></div>
-    ${tableShell(body)}
-  </div></div>`;
-  $('#downloadMine').addEventListener('click', () => downloadCsv(`${student.name}_schedule.csv`, mine.map(a=>({day:a.day, slot:a.slotLabel, student:a.studentName, status:a.status}))));
 }
 
 async function renderMySchedule(){
@@ -291,14 +268,34 @@ async function renderMySchedule(){
   const student = STATE.students.find(s=>s.id===studentId);
   const dep = STATE.departments.find(d=>d.id===selectedDepartmentId());
   const data = await API.getSchedule(selectedDepartmentId(), selectedTermId(), selectedWeekNo());
+  const grouped = {}; data.items.forEach(a => { if(!grouped[key(a.day, a.slotId)]) grouped[key(a.day, a.slotId)] = []; grouped[key(a.day, a.slotId)].push(a); });
   const mine = data.items.filter(a=>a.studentId===studentId);
-  const rows = mine.map(a=>`<tr><td>${a.day}</td><td>${a.slotLabel}</td><td>${escapeHtml(dep?.location || '-')}</td><td>${a.status}</td></tr>`).join('');
+  let gridBody = headerRow();
+  for(const slot of STATE.slots){
+    gridBody += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
+    for(const day of STATE.days){
+      if(!slotActiveOnDay(slot, day.key)){
+        gridBody += `<td class="dim inactive">-</td>`;
+        continue;
+      }
+      const items = grouped[key(day.key, slot.id)] || [];
+      const hit = items.some(a=>a.studentId===studentId);
+      gridBody += `<td class="${hit?'highlight':'dim'}">${hit ? '근무' : ''}</td>`;
+    }
+    gridBody += `</tr>`;
+  }
   const total = mine.reduce((sum,a)=>sum + (STATE.slots.find(s=>s.id===a.slotId)?.durationHours || 0), 0);
-  view().innerHTML = `<div class="panel"><h2>나의 근무시간표</h2><div class="panel-body">
+  const rows = mine.map(a=>`<tr><td>${a.day}</td><td>${a.slotLabel}</td><td>${escapeHtml(dep?.location || '-')}</td><td>${a.status}</td></tr>`).join('');
+  view().innerHTML = `<div class="panel"><h2>${escapeHtml(student?.name)} 학생 근무 개요</h2><div class="panel-body">
     <p><strong>이름:</strong> ${escapeHtml(student?.name)} &nbsp; <strong>부서:</strong> ${escapeHtml(dep?.name)} &nbsp; <strong>이번 주 근무시간:</strong> ${total}h</p>
+    <div class="toolbar"><span class="badge ASSIGNED">배정 슬롯</span><button class="btn right" id="downloadMine">개인 CSV 다운로드</button></div>
+    ${tableShell(gridBody)}
+  </div></div>
+  <div class="panel"><h2>근무 내역</h2><div class="panel-body">
     <div class="table-wrap"><table class="schedule-table"><tr><th>요일</th><th>시간</th><th>근무 장소</th><th>상태</th></tr>${rows || '<tr><td colspan="4" class="empty">배정된 근무가 없습니다.</td></tr>'}</table></div>
     <br><button class="btn">Google Calendar에 추가</button> <button class="btn">대타 요청</button>
   </div></div>`;
+  $('#downloadMine').addEventListener('click', () => downloadCsv(`${student.name}_schedule.csv`, mine.map(a=>({day:a.day, slot:a.slotLabel, student:a.studentName, status:a.status}))));
 }
 
 function downloadCsv(filename, rows){

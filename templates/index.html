@@ -23,14 +23,17 @@
   <main class="layout">
     <aside class="sidebar">
       <h2>교내근로</h2>
-      <button data-route="status">신청 현황</button>
-      <button data-route="availability">근무 희망 입력</button>
-      <button data-route="summary">근무 가능 시간 수합</button>
-      <button data-route="requirements">부서 필요 인원 설정</button>
-      <button data-route="generate">자동 시간표 생성</button>
-      <button data-route="schedule">전체 근무시간표</button>
-      <button data-route="student-slots">학생별 확인</button>
-      <button data-route="my-schedule">나의 근무시간표</button>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">학생</div>
+        <button data-route="availability">근무 희망 입력</button>
+        <button data-route="my-schedule">나의 근무시간표</button>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">관리자</div>
+        <button data-route="summary">근무 가능 시간 수합</button>
+        <button data-route="requirements">부서별 필요 인원 설정</button>
+        <button data-route="schedule">전체 근무시간표</button>
+      </div>
     </aside>
 
     <section class="content">

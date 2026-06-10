@@ -1,6 +1,8 @@
 # SAINT 기반 교내근로 근무시간표 조율 MVP
 
-학생별 근무 희망 시간 입력 → 직원용 가능 시간 수합 → 부서 필요 인원 설정 → 자동 시간표 생성 → 학생별 배정 슬롯 확인까지 구현한 Django 기반 MVP입니다.
+학생별 근무 희망 입력 → 나의 근무시간표 → 관리자용 근무 가능 시간 수합 → 부서별 필요 인원 설정 → 전체 근무시간표까지 구현한 Django 기반 MVP입니다.
+상단 헤더의 날짜와 환영 문구는 현재 시각과 선택된 학생을 기준으로 자동 표시됩니다.
+사이드바는 학생용 화면과 관리자용 화면으로 나눠서 보여줍니다.
 
 ## 1. 기술 스택
 
@@ -32,7 +34,8 @@ saint-work-schedule-system/
 │   ├── migrations/
 │   │   └── 0001_initial.py
 │   └── management/commands/
-│       └── seed_demo.py
+│       ├── seed_demo.py
+│       └── reset_demo_students.py
 ├── templates/
 │   └── index.html
 └── static/
@@ -61,6 +64,21 @@ python manage.py runserver
 http://127.0.0.1:8000
 ```
 
+### 데모 학생 초기화
+
+학생 이름과 가능 시간, 배정 데이터를 초기화하고 싶으면 아래 명령을 사용합니다.
+
+```bash
+python manage.py reset_demo_students
+```
+
+학생 이름을 직접 넣고 싶을 때는 `--student-names` 옵션을 사용합니다. 이름은 10개를 콤마로 구분해서 넣어야 합니다.
+
+```bash
+python manage.py seed_demo --student-names "박은빈,남지현,박찬욱,심종혁,김현서,송형준,이한나,이혜주,남민석,신우현"
+python manage.py reset_demo_students --student-names "박은빈,남지현,박찬욱,심종혁,김현서,송형준,이한나,이혜주,남민석,신우현"
+```
+
 ## 4. PostgreSQL 사용 방법
 
 ```bash
@@ -81,16 +99,20 @@ python manage.py seed_demo
 python manage.py runserver
 ```
 
+초기화가 필요하면 위의 `reset_demo_students` 명령을 먼저 실행한 뒤 다시 `seed_demo`를 실행하면 됩니다.
+
 ## 5. 주요 화면
 
-1. 신청 현황
-2. 근무 희망 입력
-3. 근무 가능 시간 수합
-4. 부서 필요 인원 설정
-5. 자동 시간표 생성
-6. 전체 근무시간표
-7. 학생별 근무 슬롯 확인
-8. 나의 근무시간표
+### 학생
+
+1. 근무 희망 입력
+2. 나의 근무시간표
+
+### 관리자
+
+1. 근무 가능 시간 수합
+2. 부서별 필요 인원 설정
+3. 전체 근무시간표
 
 ## 6. 주요 API
 
