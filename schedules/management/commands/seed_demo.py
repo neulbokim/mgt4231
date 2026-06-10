@@ -81,6 +81,8 @@ class Command(BaseCommand):
                 for slot_idx, slot in enumerate(active_slots):
                     if slot_idx in [3, 7]:
                         status = Availability.MEAL
+                    elif (st_idx + day_idx + slot_idx) % 11 == 0:
+                        status = Availability.EXAM
                     elif (st_idx + day_idx + slot_idx) % 5 == 0:
                         status = Availability.CLASS
                     elif (st_idx + day_idx + slot_idx) % 7 == 0:

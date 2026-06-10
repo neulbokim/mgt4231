@@ -6,8 +6,8 @@ const TIME_GROUPS = [
   { title: '평일 (8:00-22:00)', days: ['MON', 'TUE', 'WED', 'THU', 'FRI'] },
   { title: '토요일 (9:00-17:00)', days: ['SAT'] },
 ];
-const statusOrder = ['AVAILABLE', 'CLASS', 'MEAL', 'ETC', 'PREFERRED'];
-const statusLabel = {AVAILABLE:'근무 가능', CLASS:'수업', MEAL:'식사', ETC:'기타', PREFERRED:'근무 희망'};
+const statusOrder = ['PREFERRED', 'AVAILABLE', 'CLASS', 'EXAM', 'MEAL', 'ETC', 'NA'];
+const statusLabel = {PREFERRED:'근무 희망', AVAILABLE:'근무 가능', CLASS:'수업', EXAM:'시험', MEAL:'식사', ETC:'기타', NA:'NA'};
 
 const $ = (sel) => document.querySelector(sel);
 const view = () => $('#view');
@@ -134,7 +134,7 @@ async function renderAvailability(){
     for(const slot of slots){
       body += `<tr><td class="time">${escapeHtml(slotDisplayLabel(slot))}</td>`;
       for(const day of days){
-        const current = values[key(day.key, slot.id)] || 'ETC';
+        const current = values[key(day.key, slot.id)] || 'NA';
         body += `<td class="${current}"><select data-day="${day.key}" data-slot="${slot.id}">${statusOrder.map(s=>`<option value="${s}" ${s===current?'selected':''}>${statusLabel[s]}</option>`).join('')}</select></td>`;
       }
       body += `</tr>`;

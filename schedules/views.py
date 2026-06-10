@@ -31,11 +31,13 @@ def bootstrap(request):
         'slots': [slot_to_dict(s) for s in TimeSlot.objects.all()],
         'days': DAYS,
         'statuses': [
+            {'key': Availability.PREFERRED, 'label': '근무 희망'},
             {'key': Availability.AVAILABLE, 'label': '근무 가능'},
             {'key': Availability.CLASS, 'label': '수업'},
+            {'key': Availability.EXAM, 'label': '시험'},
             {'key': Availability.MEAL, 'label': '식사'},
             {'key': Availability.ETC, 'label': '기타'},
-            {'key': Availability.PREFERRED, 'label': '근무 희망'},
+            {'key': Availability.NA, 'label': 'NA'},
         ],
     })
 

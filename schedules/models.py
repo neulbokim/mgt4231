@@ -54,17 +54,21 @@ class TimeSlot(models.Model):
 
 
 class Availability(models.Model):
+    NA = 'NA'
     AVAILABLE = 'AVAILABLE'
     CLASS = 'CLASS'
+    EXAM = 'EXAM'
     MEAL = 'MEAL'
     ETC = 'ETC'
     PREFERRED = 'PREFERRED'
     STATUS_CHOICES = [
+        (PREFERRED, '근무 희망'),
         (AVAILABLE, '근무 가능'),
         (CLASS, '수업'),
+        (EXAM, '시험'),
         (MEAL, '식사'),
         (ETC, '기타'),
-        (PREFERRED, '근무 희망'),
+        (NA, 'NA'),
     ]
     DAYS = [('MON', '월'), ('TUE', '화'), ('WED', '수'), ('THU', '목'), ('FRI', '금'), ('SAT', '토'), ('SUN', '일')]
 
